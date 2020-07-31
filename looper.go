@@ -41,7 +41,7 @@ func (this *Looper) Lock(entry *Entry) bool {
 		return true
 	}
 	key := fmt.Sprintf("looper.%s", entry.name)
-	res, _ := this.redisCli.Do("SET", key, "1", "EX", 60*60, "NX").String()
+	res := this.redisCli.Do("SET", key, "1", "EX", 60*60, "NX").String()
 	if res == "OK" {
 		return true
 	}
