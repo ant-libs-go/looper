@@ -14,11 +14,11 @@ import (
 )
 
 type Entry struct {
-	name            string
-	Spec            time.Duration
-	Job             func()
-	rdsLock         *lock.Lock
-	intervalSeconds int64
+	name             string
+	Spec             time.Duration
+	Job              func()
+	rdsLock          *lock.Lock
+	lockAliveSeconds int64
 }
 
 type Looper struct {
@@ -35,7 +35,7 @@ func (this *Looper) Lock(entry *Entry) bool {
 	if entry.rdsLock == nil {
 		return true
 	}
-	if entry.rdsLock.Transaction().WaitAndLock(entry.intervalSeconds) == nil {
+	if entry.rdsLock.Transaction().WaitAndLock(entry.lockAliveSeconds) == nil {
 		return true
 	}
 	//key := fmt.Sprintf("looper.%s", entry.name)
@@ -52,13 +52,13 @@ func (this *Looper) UnLock(entry *Entry) bool {
 	return false
 }
 
-func (this *Looper) AddFunc(name string, spec time.Duration, cmd func(), rdsLock *lock.Lock, intervalSeconds int64) {
+func (this *Looper) AddFunc(name string, spec time.Duration, rdsLock *lock.Lock, lockAliveSeconds int64, cmd func()) {
 	entry := &Entry{
-		name:            name,
-		Spec:            spec,
-		Job:             cmd,
-		rdsLock:         rdsLock,
-		intervalSeconds: intervalSeconds,
+		name:             name,
+		Spec:             spec,
+		Job:              cmd,
+		rdsLock:          rdsLock,
+		lockAliveSeconds: lockAliveSeconds,
 	}
 	this.entries = append(this.entries, entry)
 }
