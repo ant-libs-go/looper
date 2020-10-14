@@ -35,7 +35,7 @@ func (this *Looper) Lock(entry *Entry) bool {
 	if entry.rdsLock == nil {
 		return true
 	}
-	if entry.rdsLock.Transaction().WaitAndLock(entry.lockAliveSeconds) == nil {
+	if entry.rdsLock.WaitAndLock(entry.lockAliveSeconds) == nil {
 		return true
 	}
 	//key := fmt.Sprintf("looper.%s", entry.name)
@@ -46,7 +46,7 @@ func (this *Looper) UnLock(entry *Entry) bool {
 	if entry.rdsLock == nil {
 		return true
 	}
-	if entry.rdsLock.Commit() == nil {
+	if entry.rdsLock.Release() == nil {
 		return true
 	}
 	return false
