@@ -8,63 +8,57 @@
 package looper
 
 import (
-	"fmt"
 	"time"
 
-	redis "github.com/go-redis/redis/v7"
+	"github.com/ant-libs-go/redis/lock"
 )
 
 type Entry struct {
-	name string
-	Spec time.Duration
-	Job  func()
+	name            string
+	Spec            time.Duration
+	Job             func()
+	rdsLock         *lock.Lock
+	intervalSeconds int64
 }
 
 type Looper struct {
-	entries  []*Entry
-	running  bool
-	redisCli *redis.Client
+	entries []*Entry
+	running bool
 }
 
-func New(rdsOpt *redis.Options) *Looper {
+func New() *Looper {
 	o := &Looper{running: true}
-	if rdsOpt != nil {
-		o.redisCli = redis.NewClient(rdsOpt)
-	}
-
 	return o
 }
 
-// 简单粗暴，锁定一小时。确保哪怕死锁也就一个小时的事儿
 func (this *Looper) Lock(entry *Entry) bool {
-	if this.redisCli == nil {
+	if entry.rdsLock == nil {
 		return true
 	}
-	key := fmt.Sprintf("looper.%s", entry.name)
-	res := this.redisCli.Do("SET", key, "1", "EX", 60*60, "NX").String()
-	if res == "OK" {
+	if entry.rdsLock.Transaction().WaitAndLock(entry.intervalSeconds) == nil {
 		return true
 	}
+	//key := fmt.Sprintf("looper.%s", entry.name)
 	return false
 }
 
 func (this *Looper) UnLock(entry *Entry) bool {
-	if this.redisCli == nil {
+	if entry.rdsLock == nil {
 		return true
 	}
-	key := fmt.Sprintf("looper.%s", entry.name)
-	res, _ := this.redisCli.Do("DEL", key).Int64()
-	if res == 1 {
+	if entry.rdsLock.Commit() == nil {
 		return true
 	}
 	return false
 }
 
-func (this *Looper) AddFunc(name string, spec time.Duration, cmd func()) {
+func (this *Looper) AddFunc(name string, spec time.Duration, cmd func(), rdsLock *lock.Lock, intervalSeconds int64) {
 	entry := &Entry{
-		name: name,
-		Spec: spec,
-		Job:  cmd,
+		name:            name,
+		Spec:            spec,
+		Job:             cmd,
+		rdsLock:         rdsLock,
+		intervalSeconds: intervalSeconds,
 	}
 	this.entries = append(this.entries, entry)
 }
